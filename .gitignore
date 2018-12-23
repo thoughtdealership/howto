@@ -1,0 +1,5 @@
+howto
+howto.zip
+*.code-workspace
+report.out
+.cover
