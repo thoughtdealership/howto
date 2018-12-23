@@ -1,0 +1,267 @@
+\documentclass{beamer}
+%\usetheme{metropolis}
+%\usecolortheme{owl}
+%\usecolortheme[snowy]{owl}
+\usepackage{listings}
+\usepackage{listings-golang}
+\title{Own Your Own Dependencies}
+\subtitle{Golang Reston}
+\author{Michael Spiegel}
+\date{January 16, 2018}
+
+\lstset{
+frame=single,
+basicstyle=\footnotesize,
+keywordstyle=\color{red},
+showstringspaces=false,
+stringstyle=\color{blue},
+tabsize=4,
+language=Golang
+}
+
+\hypersetup{
+  colorlinks=true,
+  urlcolor=blue
+}
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}
+\frametitle{logging standards?}
+\begin{itemize}
+\item lots of prior discussions about loggers
+\item \href{https://dave.cheney.net/2015/11/05/lets-talk-about-logging}{Let's Talk About Logging}
+\item \href{https://go-talks.appspot.com/github.com/ChrisHines/talks/structured-logging/structured-logging.slide}{The Hunt for a Logger Interface}
+\item logging levels should be actionable
+\item level error goes to PagerDuty
+\item level warning goes to non-immediate reporting
+\item use structured logging to your advantage
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{rs/zerolog to the rescue}
+\begin{itemize}
+\item \href{https://github.com/rs/zerolog}{github.com/rs/zerolog}
+\item leveled logger
+\item structured logger
+\item zero allocation (or low allocation) logger
+\item uses types not interfaces
+\item 5055 lines of code
+\item tradeoff: you can't inspect fields
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{contexts}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+package context
+
+// The provided key must be comparable and should not
+// be of type string or any other built-in type to
+// avoid collisions between packages using context.
+// Users of WithValue should define their own types
+// for keys. To avoid allocating when assigning to
+// an interface{}, context keys often have concrete
+// type struct{}.
+func WithValue(parent Context, key,
+               val interface{}) Context {
+  ...
+  return &valueCtx{parent, key, val}
+}
+\end{lstlisting}
+context $\rightarrow$ values $\rightarrow$ in $\rightarrow$ list \\
+\pause
+Actually \\
+interface\{\} $\rightarrow$ interface\{\} $\rightarrow$ interface\{\}
+$\rightarrow$ interface\{\}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{type-safe contexts}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+package frame
+
+type frameCtx struct{}
+
+var frameKey frameCtx
+
+type Frame struct {
+	UUID   uuid.UUID
+	Logger zerolog.Logger
+
+	Foo string
+	Bar bool
+	Baz struct {
+		A int
+		B byte
+		C string
+	}
+}
+\end{lstlisting}
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{type-safe contexts}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+package frame
+
+func NewContext(ctx context.Context) context.Context {
+	fr := new(Frame)
+	fr.Logger = log.Logger
+	return context.WithValue(ctx, frameKey, fr)
+}
+
+func FromContext(ctx context.Context) *Frame {
+	fr := ctx.Value(frameKey)
+	if fr == nil {
+		return nil
+	}
+	return fr.(*Frame)
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}
+\frametitle{error handling}
+\begin{itemize}
+\item generate http response codes
+\item combine multiple errors
+\item generate http response codes for combined errors
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{external errors}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+package exterror
+
+type ExtError struct {
+	Status int
+	Err    error
+}
+
+func (e ExtError) Error() string {
+	return e.Err.Error()
+}
+
+func Create(status int, err error) ExtError {
+	return ExtError{Status: status, Err: err}
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{combining errors}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+package multierr
+
+type Error []error
+
+func Append(e1 error, e2 error) error {
+	if isNil(e1) && isNil(e2) { return nil }
+	if isNil(e1) { return e2 }
+	if isNil(e2) { return e1 }
+	switch e1 := e1.(type) {
+	case Error:
+		switch e2 := e2.(type) {
+			case Error: return append(e1, e2...)
+			default: return append(e1, e2)
+		}
+	default:
+		...
+	}
+}
+\end{lstlisting}
+\begin{itemize}
+\item \href{https://github.com/jonbodner/multierr}{github.com/jonbodner/multierr}
+\item 62 lines of code
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{combining external errors}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+
+// Convert generates an ExtError from
+// a non-nil error input
+func Convert(err error) ExtError {
+	switch err := err.(type) {
+	case ExtError:
+		return err
+	case multierr.Error:
+		return ExtError{
+			Status: convertMultiErr(err),
+			Err: err
+		}
+	default:
+		return ExtError{Status: 500, Err: err}
+	}
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{combining external errors}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+func convertMultiErr(errs multierr.Error) int {
+	if !allExtError(errs) {
+		return 500
+	} else if allEqualStatus(errs) {
+		return errs[0].(ExtError).Status
+	} else if allRangeStatus(errs, 400, 500) {
+		return 400
+	}
+	return 500
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{response handler}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+func Response(handle respHandle) httprouter.Handle {
+	return func(w http.ResponseWriter,
+		r *http.Request, p httprouter.Params) {
+		msg, err := handle(r, p)
+		if err != nil {
+			HandleError(w, r, err)
+		} else {
+			HandleResult(w, r, msg)
+		}
+	}
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{error response handler}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+func HandleError(w http.ResponseWriter,
+	r *http.Request, err error) {
+
+	ctx := r.Context()
+	fr := frame.FromContext(ctx)
+	exterr := exterror.Convert(ctx, err)
+	if exterr.Status < 500 {
+		fr.Logger.Warn().
+			Str("error", exterr.Error()).
+			Int("status", exterr.Status).
+			Msg("user error reported")
+	} else {
+		fr.Logger.Error().
+			Str("error", exterr.Error()).
+			Int("status", exterr.Status).
+			Msg("server error reported")
+	}
+	...
+}
+\end{lstlisting}
+\end{frame}
+
+\end{document}
