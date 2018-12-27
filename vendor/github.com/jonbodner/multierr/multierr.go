@@ -1,8 +1,8 @@
 package multierr
 
 import (
-	"strings"
 	"reflect"
+	"strings"
 )
 
 type Error []error
@@ -50,10 +50,11 @@ func Append(e1 error, e2 error) error {
 }
 
 func isNil(i interface{}) bool {
+	if i == nil {
+		return true
+	}
 	v := reflect.ValueOf(i)
 	switch v.Kind() {
-	case reflect.Invalid:
-		return i == nil
 	case reflect.Interface, reflect.Chan, reflect.Func, reflect.Map, reflect.Ptr, reflect.Slice:
 		return v.IsNil()
 	default:
