@@ -13,7 +13,7 @@ import (
 func Create() http.Handler {
 	router := httprouter.New()
 
-	router.Handle("GET", "/hello", middle.ResponseHandler(Hello))
+	router.Handle("GET", "/", middle.ResponseHandler(Hello))
 	router.Handle("POST", "/post", middle.ResponseHandler(Hello))
 	router.Handle("GET", "/error", middle.ResponseHandler(ErrorRoute))
 	router.Handle("GET", "/user-error", middle.ResponseHandler(UserErrorRoute))

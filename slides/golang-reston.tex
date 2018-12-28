@@ -1,9 +1,15 @@
 \documentclass{beamer}
-%\usetheme{metropolis}
-%\usecolortheme{owl}
-%\usecolortheme[snowy]{owl}
+\usetheme{Montpellier}
+
+% dark theme
+\usecolortheme{owl}
+
+% light theme
+%\usecolortheme{dove}
+
 \usepackage{listings}
 \usepackage{listings-golang}
+
 \title{Own Your Own Dependencies}
 \subtitle{Golang Reston}
 \author{Michael Spiegel}
@@ -12,7 +18,7 @@
 \lstset{
 frame=single,
 basicstyle=\footnotesize,
-keywordstyle=\color{red},
+keywordstyle=\color{purple},
 showstringspaces=false,
 stringstyle=\color{blue},
 tabsize=4,
@@ -29,6 +35,15 @@ language=Golang
 \begin{frame}
 \titlepage
 \end{frame}
+
+\begin{frame}
+\frametitle{Outline}
+\tableofcontents
+\end{frame}
+
+\section{Demo}
+\section{Assumptions}
+\section{Logging}
 
 \begin{frame}
 \frametitle{logging standards?}
@@ -56,6 +71,8 @@ language=Golang
 \end{itemize}
 \end{frame}
 
+\section{Contexts}
+
 \begin{frame}[fragile]
 \frametitle{contexts}
 \begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
@@ -76,8 +93,7 @@ func WithValue(parent Context, key,
 \end{lstlisting}
 context $\rightarrow$ values $\rightarrow$ in $\rightarrow$ list \\
 \pause
-Actually \\
-interface\{\} $\rightarrow$ interface\{\} $\rightarrow$ interface\{\}
+Actually interface\{\} $\rightarrow$ interface\{\} $\rightarrow$ interface\{\}
 $\rightarrow$ interface\{\}
 \end{frame}
 
@@ -127,6 +143,8 @@ func FromContext(ctx context.Context) *Frame {
 \end{lstlisting}
 \end{frame}
 
+\section{Errors}
+
 \begin{frame}
 \frametitle{error handling}
 \begin{itemize}
@@ -163,6 +181,16 @@ package multierr
 
 type Error []error
 
+\end{lstlisting}
+\begin{itemize}
+\item \href{https://github.com/jonbodner/multierr}{github.com/jonbodner/multierr}
+\item 62 lines of code
+\end{itemize}	
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{combining errors}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]	
 func Append(e1 error, e2 error) error {
 	if isNil(e1) && isNil(e2) { return nil }
 	if isNil(e1) { return e2 }
@@ -178,10 +206,6 @@ func Append(e1 error, e2 error) error {
 	}
 }
 \end{lstlisting}
-\begin{itemize}
-\item \href{https://github.com/jonbodner/multierr}{github.com/jonbodner/multierr}
-\item 62 lines of code
-\end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]
@@ -221,6 +245,107 @@ func convertMultiErr(errs multierr.Error) int {
 }
 \end{lstlisting}
 \end{frame}
+
+\section{Routing}
+
+\begin{frame}[fragile]
+\frametitle{so many routers...}
+\begin{itemize}
+\item \href{https://github.com/julienschmidt/httprouter}{github.com/julienschmidt/httprouter}
+\item limited scope
+\item explicit matches
+\item builds radix tree (trie) for routes
+\item zero allocation (or low allocation) router
+\item 1232 lines of code
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{finally lets talk middleware}
+\begin{itemize}
+\item \href{https://github.com/justinas/alice}{github.com/justinas/alice}
+\item syntactic sugar
+\item Transforms alice.New(Func1, Func2, Func3).Then(App)
+\item to Func1(Func2(Func3(App)))
+\item 112 lines of code
+\item bonus points for clever name
+\end{itemize}
+\end{frame}	
+
+\section{Integration}
+
+\begin{frame}[fragile]
+\frametitle{create router}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+func Create() http.Handler {
+	router := httprouter.New()
+
+	router.Handle("GET", "/", Response(Hello))
+
+	return alice.New(
+		RecoveryHandler,
+		FrameHandler,
+		RequestIDHandler).
+		Then(router)
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{create frame}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+func FrameHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(
+			w http.ResponseWriter,
+			r *http.Request) {
+		ctx := r.Context()
+		ctx = frame.NewContext(ctx)
+		r = r.WithContext(ctx)
+		h.ServeHTTP(w, r)
+	})
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{populate frame}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+func RequestIDHandler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(
+			w http.ResponseWriter,
+			r *http.Request) {
+		ctx := r.Context()
+		fr := frame.FromContext(ctx)
+		id := uuid.New()
+		fr.UUID = id
+		fr.Logger = fr.Logger.With().
+			Str("uuid", id.String()).
+			Logger()
+		h.ServeHTTP(w, r)
+	})
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{what's a response?}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+type respHandle func(*http.Request,
+	httprouter.Params) (string, error)
+
+func Hello(r *http.Request,
+	p httprouter.Params) (string, error) {
+	return "world", nil
+}
+
+func UserError(r *http.Request,
+	p httprouter.Params) (string, error) {
+	err := exterror.Create(http.StatusBadRequest,
+		errors.New("user error"))
+	return "", err
+}
+\end{lstlisting}
+\end{frame}	
 
 \begin{frame}[fragile]
 \frametitle{response handler}
@@ -262,6 +387,21 @@ func HandleError(w http.ResponseWriter,
 	...
 }
 \end{lstlisting}
+\end{frame}
+
+\section{Conclusions}
+
+\begin{frame}
+\frametitle{own your own dependencies}
+\begin{itemize}
+\item \href{https://github.com/google/uuid}{github.com/google/uuid} 868
+\item \href{https://github.com/go-stack/stack}{github.com/go-stack/stack} 400
+\item \href{https://github.com/ianschenck/envflag}{github.com/ianschenck/envflag} 192
+\item \href{https://github.com/jonbodner/multierr}{github.com/jonbodner/multierr} 63
+\item \href{https://github.com/julienschmidt/httprouter}{github.com/julienschmidt/httprouter} 1232
+\item \href{https://github.com/justinas/alice}{github.com/justinas/alice} 112
+\item \href{https://github.com/rs/zerolog}{github.com/rs/zerolog} 5055
+\end{itemize}
 \end{frame}
 
 \end{document}
