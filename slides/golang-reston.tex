@@ -250,12 +250,12 @@ func HandleError(w http.ResponseWriter,
 	exterr := exterror.Convert(ctx, err)
 	if exterr.Status < 500 {
 		fr.Logger.Warn().
-			Str("error", exterr.Error()).
+			Err(err).
 			Int("status", exterr.Status).
 			Msg("user error reported")
 	} else {
 		fr.Logger.Error().
-			Str("error", exterr.Error()).
+			Err(err).
 			Int("status", exterr.Status).
 			Msg("server error reported")
 	}

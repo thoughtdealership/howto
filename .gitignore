@@ -1,4 +1,8 @@
 howto
+slides/*
+!slides/*.pdf
+!slides/*.tex
+!slides/*.sty
 howto.zip
 *.code-workspace
 report.out

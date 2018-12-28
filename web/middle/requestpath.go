@@ -13,6 +13,7 @@ func RequestPathHandler(h http.Handler) http.Handler {
 		fr := frame.FromContext(ctx)
 		fr.Logger = fr.Logger.With().
 			Str("request_path", r.URL.Path).
+			Str("request_method", r.Method).
 			Logger()
 		h.ServeHTTP(w, r)
 	})

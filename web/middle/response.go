@@ -11,6 +11,7 @@ import (
 	"github.com/thoughtdealership/howto/app/exterror"
 	"github.com/thoughtdealership/howto/app/frame"
 
+	"github.com/jonbodner/multierr"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -80,18 +81,30 @@ func WriteMessage(w http.ResponseWriter, r *http.Request, statusCode int, body s
 	w.Write(buf.Bytes())
 }
 
+func toMultierr(err error) []error {
+	switch err := err.(type) {
+	case multierr.Error:
+		return []error(err)
+	default:
+		return []error{err}
+	}
+}
+
 func HandleError(w http.ResponseWriter, r *http.Request, err error) {
 	ctx := r.Context()
 	fr := frame.FromContext(ctx)
 	exterr := exterror.Convert(ctx, err)
+	multi := toMultierr(err)
 	if exterr.Status < 500 {
 		fr.Logger.Warn().
-			Str("error", exterr.Error()).
+			Err(err).
+			Errs("errors", multi).
 			Int("status", exterr.Status).
 			Msg("user error reported")
 	} else {
 		fr.Logger.Error().
-			Str("error", exterr.Error()).
+			Err(err).
+			Errs("errors", multi).
 			Int("status", exterr.Status).
 			Msg("server error reported")
 	}

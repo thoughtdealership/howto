@@ -14,7 +14,7 @@ func BodyHandler(h http.Handler) http.Handler {
 		var body []byte
 		ctx := r.Context()
 		fr := frame.FromContext(ctx)
-		if r.Body != nil {
+		if r.Body != http.NoBody {
 			var err error
 			var buf bytes.Buffer
 			tee := io.TeeReader(r.Body, &buf)
@@ -26,7 +26,6 @@ func BodyHandler(h http.Handler) http.Handler {
 				fr.Logger = fr.Logger.With().
 					Bytes("body", body).
 					Logger()
-
 			}
 		}
 		h.ServeHTTP(w, r)
