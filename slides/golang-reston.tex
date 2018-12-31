@@ -2,18 +2,19 @@
 \usetheme{Montpellier}
 
 % dark theme
-\usecolortheme{owl}
+%\usecolortheme{owl}
 
 % light theme
 %\usecolortheme{dove}
 
 \usepackage{listings}
 \usepackage{listings-golang}
+\usepackage{ulem}
 
 \title{Own Your Own Dependencies}
 \subtitle{Golang Reston}
 \author{Michael Spiegel}
-\date{January 16, 2018}
+\date{January 16, 2019}
 
 \lstset{
 frame=single,
@@ -37,12 +38,43 @@ language=Golang
 \end{frame}
 
 \begin{frame}
+\frametitle{introduction}
+\begin{itemize}
+\item a way to build a web service
+\item lessons learned along the way
+\end{itemize}
+\end{frame}
+
+\begin{frame}
 \frametitle{Outline}
 \tableofcontents
 \end{frame}
 
 \section{Demo}
+\begin{frame}
+\frametitle{always be closing}
+\begin{itemize}
+\item Always Be Closing is a GitHub service
+\item improves development workflow
+\item 5 min demo
+\pause
+\item beta testers needed at \href{https://thoughtdealership.com}{thoughtdealership.com}
+\item slides at \href{https://github.com/thoughtdealership/howto}{github.com/thoughtdealership/howto}
+\item howto is CC0 licensed
+\end{itemize}
+\end{frame}
+
 \section{Assumptions}
+\begin{frame}
+\frametitle{tyranny of metrics}
+\begin{itemize}
+\item lines of code metric used throughout the prsentation
+\item loc is generally a useless metric
+\item using it as a proxy for understanding the entire application
+\item we'll revisit this
+\end{itemize}
+\end{frame}
+
 \section{Logging}
 
 \begin{frame}
@@ -403,5 +435,26 @@ func HandleError(w http.ResponseWriter,
 \item \href{https://github.com/rs/zerolog}{github.com/rs/zerolog} 5055
 \end{itemize}
 \end{frame}
+
+\begin{frame}
+\frametitle{revisiting assumptions}
+\begin{itemize}
+\item we optimized for lines of code
+\item proxy for understanding the entire application
+\item what is highest priority for your application?
+\item\only<1>{is it understanding?}\only<2->{\sout{is it understanding?}}
+\item<2-> delivering features, security, performance
+\item<2-> whatever works for you
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{thank you}
+	\begin{itemize}
+		\item please - beta testers needed at \href{https://thoughtdealership.com}{thoughtdealership.com}
+		\item slides at \href{https://github.com/thoughtdealership/howto}{github.com/thoughtdealership/howto}
+		\item howto is CC0 licensed
+	\end{itemize}
+	\end{frame}
 
 \end{document}

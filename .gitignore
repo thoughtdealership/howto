@@ -1,9 +1,10 @@
 .vscode
 howto
 slides/*
-!slides/*.pdf
+!slides/Makefile
 !slides/*.tex
 !slides/*.sty
+!slides/*.pdf
 howto.zip
 *.code-workspace
 report.out
