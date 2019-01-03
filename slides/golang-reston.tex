@@ -10,6 +10,7 @@
 \usepackage{listings}
 \usepackage{listings-golang}
 \usepackage{ulem}
+\usepackage{tgheros}
 
 \title{Own Your Own Dependencies}
 \subtitle{Golang Reston}
@@ -217,12 +218,12 @@ type Error []error
 \begin{itemize}
 \item \href{https://github.com/jonbodner/multierr}{github.com/jonbodner/multierr}
 \item 62 lines of code
-\end{itemize}	
+\end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]
 \frametitle{combining errors}
-\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]	
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
 func Append(e1 error, e2 error) error {
 	if isNil(e1) && isNil(e2) { return nil }
 	if isNil(e1) { return e2 }
@@ -302,7 +303,7 @@ func convertMultiErr(errs multierr.Error) int {
 \item 112 lines of code
 \item bonus points for clever name
 \end{itemize}
-\end{frame}	
+\end{frame}
 
 \section{Integration}
 
@@ -377,7 +378,7 @@ func UserError(r *http.Request,
 	return "", err
 }
 \end{lstlisting}
-\end{frame}	
+\end{frame}
 
 \begin{frame}[fragile]
 \frametitle{response handler}
